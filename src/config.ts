@@ -51,6 +51,7 @@ export interface Config {
     personaLookbackDays: number
     personaMaxMessages: number
     personaMinMessages: number
+    personaViewAuthority: number
     theme: 'light' | 'dark' | 'auto'
     skin: string
 
@@ -206,7 +207,13 @@ export const Config: Schema<Config> = Schema.intersect([
         personaMinMessages: Schema.number()
             .description('触发用户画像分析所需的最少历史消息数量。')
             .min(10)
-            .default(20)
+            .default(20),
+        personaViewAuthority: Schema.number()
+            .description('查看他人用户画像所需的最低权限等级（0=所有人, 1=用户, 2=协管, 3=管理员, 4=主人）。')
+            .min(0)
+            .max(4)
+            .step(1)
+            .default(3)
     }).description('用户画像设置'),
     Schema.object({
         promptTopic: Schema.string()

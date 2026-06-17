@@ -243,10 +243,10 @@ export function apply(ctx: Context, config: Config) {
 
             if (
                 userId !== session.userId &&
-                ((session as Session<User.Field>).user?.authority ?? 0) < 3
+                ((session as Session<User.Field>).user?.authority ?? 0) < (config.personaViewAuthority ?? 3)
             ) {
                 await session.send(
-                    '你没有权限查看其他用户的画像。当前需要的权限为 3 级。将转为查看自己的画像。'
+                    `你没有权限查看其他用户的画像。需要权限 ${config.personaViewAuthority ?? 3} 级。将转为查看自己的画像。`
                 )
                 userId = session.userId
             }
