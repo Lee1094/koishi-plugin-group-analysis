@@ -3,7 +3,6 @@ import { promises as fs } from 'fs'
 import path from 'path'
 import { GroupAnalysisResult, UserPersonaProfile } from '../types'
 import { Config } from '../config'
-import { fileURLToPath } from 'url'
 import {
     formatGoldenQuotes,
     formatTopics,
@@ -69,9 +68,7 @@ export class RendererService extends Service {
     }
 
     async init() {
-        const dirname =
-            __dirname?.length > 0 ? __dirname : fileURLToPath(import.meta.url)
-        const resourcesDir = dirname + '/../resources'
+        const resourcesDir = __dirname + '/../resources'
 
         const templateDir = this.templateDir
         const skin = this.config.skin || 'md3'

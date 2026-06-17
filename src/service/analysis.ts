@@ -363,7 +363,7 @@ export class AnalysisService extends Service {
                 continue
             }
 
-            record.roles = userGroupInfo.roles
+            record.roles = (userGroupInfo.roles || []).map((r) => (typeof r === 'string' ? r : r.name || r.id || ''))
 
             const history =
                 await this.ctx.group_analysis_message.getHistoricalMessages(
