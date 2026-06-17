@@ -68,7 +68,7 @@ export class RendererService extends Service {
     }
 
     async init() {
-        const resourcesDir = __dirname + '/../resources'
+        const resourcesDir = __dirname + '/../../resources'
 
         const templateDir = this.templateDir
         const skin = this.config.skin || 'md3'
