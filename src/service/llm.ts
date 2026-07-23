@@ -30,6 +30,8 @@ export class LLMService extends Service {
 
         logger.info(`正在调用 OpenAI API 进行 ${taskName}...`)
 
+        const timeout = (this.config.openaiTimeout ?? 120) * 1000
+
         const response = await this.ctx.http.post(url, {
             model: this.config.openaiModel,
             messages: [
@@ -37,6 +39,7 @@ export class LLMService extends Service {
             ],
             temperature: this.config.temperature ?? 1
         }, {
+            timeout,
             headers: {
                 'Authorization': `Bearer ${this.config.openaiApiKey}`,
                 'Content-Type': 'application/json'

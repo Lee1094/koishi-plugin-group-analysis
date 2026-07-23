@@ -36,6 +36,7 @@ export interface Config {
     outputFormat: 'image' | 'pdf' | 'text'
     maxMessages: number
     temperature: number
+    openaiTimeout: number
     minMessages: number
     maxTopics: number
     maxUserTitles: number
@@ -173,7 +174,12 @@ export const Config: Schema<Config> = Schema.intersect([
             .description('生成的温度。')
             .min(0)
             .max(2)
-            .default(1.5)
+            .default(1.5),
+        openaiTimeout: Schema.number()
+            .description('API 请求超时时间（秒）。')
+            .min(10)
+            .max(600)
+            .default(120)
     }).description('OpenAI API 设置'),
     Schema.object({
         personaUserFilter: Schema.array(String)
