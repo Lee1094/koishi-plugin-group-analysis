@@ -37,7 +37,8 @@ export class LLMService extends Service {
             messages: [
                 { role: 'user', content: prompt }
             ],
-            temperature: this.config.temperature ?? 1
+            temperature: this.config.temperature ?? 1,
+            max_tokens: 4096
         }, {
             timeout: timeoutMs,
             headers: {

@@ -672,32 +672,38 @@ export class AnalysisService extends Service {
 
             const format = outputFormat || this.config.outputFormat || 'image'
 
-            switch (format) {
-                case 'image':
-                    {
-                        const image =
-                            await this.ctx.group_analysis_renderer.renderGroupAnalysis(
-                                analysisResult,
-                                this.config
+            const llmEmpty = !analysisResult.topics?.length && !analysisResult.userTitles?.length && !analysisResult.goldenQuotes?.length
+            if (llmEmpty) {
+                const textReport = generateTextReport(analysisResult)
+                message = h.text(textReport + '\n\n⚠️ AI 分析未生成内容，请检查 API 日志。')
+            } else {
+                switch (format) {
+                    case 'image':
+                        {
+                            const image =
+                                await this.ctx.group_analysis_renderer.renderGroupAnalysis(
+                                    analysisResult,
+                                    this.config
+                                )
+                            message =
+                                typeof image === 'string'
+                                    ? h.text(image)
+                                    : h.image(image, 'image/png')
+                        }
+                        break
+                    case 'pdf': {
+                        const pdfBuffer =
+                            await this.ctx.group_analysis_renderer.renderGroupAnalysisToPdf(
+                                analysisResult
                             )
-                        message =
-                            typeof image === 'string'
-                                ? h.text(image)
-                                : h.image(image, 'image/png')
+                        message = pdfBuffer
+                            ? h.file(pdfBuffer, 'application/pdf')
+                            : h.text('PDF 渲染失败，请检查日志。')
+                        break
                     }
-                    break
-                case 'pdf': {
-                    const pdfBuffer =
-                        await this.ctx.group_analysis_renderer.renderGroupAnalysisToPdf(
-                            analysisResult
-                        )
-                    message = pdfBuffer
-                        ? h.file(pdfBuffer, 'application/pdf')
-                        : h.text('PDF 渲染失败，请检查日志。')
-                    break
-                }
-                default: {
-                    message = h.text(generateTextReport(analysisResult))
+                    default: {
+                        message = h.text(generateTextReport(analysisResult))
+                    }
                 }
             }
         } catch (error) {
@@ -826,37 +832,42 @@ export class AnalysisService extends Service {
         const format = outputFormat || this.config.outputFormat || 'image'
 
         if (action !== '只对话') {
-            let reportMessage: h
-            switch (format) {
-                case 'image':
-                    {
-                        const image =
-                            await this.ctx.group_analysis_renderer.renderGroupAnalysis(
-                                analysisResult,
-                                this.config
+            const llmEmpty = !analysisResult.topics?.length && !analysisResult.userTitles?.length && !analysisResult.goldenQuotes?.length
+            if (llmEmpty) {
+                await sendStatus(textReport + '\n\n⚠️ AI 分析未生成内容，请检查 API 日志。')
+            } else {
+                let reportMessage: h
+                switch (format) {
+                    case 'image':
+                        {
+                            const image =
+                                await this.ctx.group_analysis_renderer.renderGroupAnalysis(
+                                    analysisResult,
+                                    this.config
+                                )
+                            reportMessage =
+                                typeof image === 'string'
+                                    ? h.text(image)
+                                    : h.image(image, 'image/png')
+                        }
+                        break
+                    case 'pdf': {
+                        const pdfBuffer =
+                            await this.ctx.group_analysis_renderer.renderGroupAnalysisToPdf(
+                                analysisResult
                             )
-                        reportMessage =
-                            typeof image === 'string'
-                                ? h.text(image)
-                                : h.image(image, 'image/png')
+                        reportMessage = pdfBuffer
+                            ? h.file(pdfBuffer, 'application/pdf')
+                            : h.text('PDF 渲染失败，请检查日志。')
+                        break
                     }
-                    break
-                case 'pdf': {
-                    const pdfBuffer =
-                        await this.ctx.group_analysis_renderer.renderGroupAnalysisToPdf(
-                            analysisResult
-                        )
-                    reportMessage = pdfBuffer
-                        ? h.file(pdfBuffer, 'application/pdf')
-                        : h.text('PDF 渲染失败，请检查日志。')
-                    break
+                    default: {
+                        reportMessage = h.text(textReport)
+                    }
                 }
-                default: {
-                    reportMessage = h.text(textReport)
-                }
-            }
 
-            await sendStatus(reportMessage)
+                await sendStatus(reportMessage)
+            }
         }
 
         if (action !== '只分析') {
