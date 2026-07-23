@@ -30,20 +30,29 @@ export class LLMService extends Service {
 
         logger.info(`正在调用 OpenAI API 进行 ${taskName}...`)
 
-        const timeout = (this.config.openaiTimeout ?? 120) * 1000
+        const timeoutMs = (this.config.openaiTimeout ?? 120) * 1000
 
-        const response = await this.ctx.http.post(url, {
+        const request = this.ctx.http.post(url, {
             model: this.config.openaiModel,
             messages: [
                 { role: 'user', content: prompt }
             ],
             temperature: this.config.temperature ?? 1
         }, {
-            timeout,
+            timeout: timeoutMs,
             headers: {
                 'Authorization': `Bearer ${this.config.openaiApiKey}`,
                 'Content-Type': 'application/json'
             }
+        })
+
+        const timeout = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error(`API 请求超时 (${taskName}, ${timeoutMs / 1000}s)`)), timeoutMs)
+        )
+
+        const response = await Promise.race([request, timeout]).catch((err) => {
+            logger.error(`OpenAI API 请求失败 (${taskName}):`, err.message || err)
+            throw err
         })
 
         const rawContent = response?.choices?.[0]?.message?.content
