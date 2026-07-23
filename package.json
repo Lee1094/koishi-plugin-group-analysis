@@ -1,7 +1,7 @@
 {
     "name": "koishi-plugin-group-analysis-mx",
     "description": "群聊分析插件 - 生成精美群聊统计报告，支持 AI 话题总结（独立版，不依赖 ChatLuna）",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "main": "lib/index.js",
     "module": "lib/index.mjs",
     "typings": "lib/index.d.ts",

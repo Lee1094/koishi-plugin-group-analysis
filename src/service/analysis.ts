@@ -1094,7 +1094,7 @@ export class AnalysisService extends Service {
         // LLM analyses in parallel
         const users = Object.values(userStats)
 
-        const [topics, userTitles, goldenQuotes] = await Promise.all([
+        const [topicsResult, titlesResult, quotesResult] = await Promise.allSettled([
             this.ctx.group_analysis_llm.summarizeTopics(
                 messagesText,
                 context
@@ -1110,15 +1110,21 @@ export class AnalysisService extends Service {
                 this.config.maxGoldenQuotes,
                 context
             )
-        ]).catch((error) => {
-            this.ctx.logger.error('LLM analysis failed:', error)
-            //  On LLM failure, return empty results to avoid crashing the entire analysis.
-            return [
-                [] as SummaryTopic[],
-                [] as UserTitle[],
-                [] as GoldenQuote[]
-            ] as const
-        })
+        ])
+
+        const topics: SummaryTopic[] = topicsResult.status === 'fulfilled' ? topicsResult.value : []
+        const userTitles: UserTitle[] = titlesResult.status === 'fulfilled' ? titlesResult.value : []
+        const goldenQuotes: GoldenQuote[] = quotesResult.status === 'fulfilled' ? quotesResult.value : []
+
+        if (topicsResult.status === 'rejected') {
+            this.ctx.logger.error('话题分析失败:', topicsResult.reason)
+        }
+        if (titlesResult.status === 'rejected') {
+            this.ctx.logger.error('用户称号分析失败:', titlesResult.reason)
+        }
+        if (quotesResult.status === 'rejected') {
+            this.ctx.logger.error('金句分析失败:', quotesResult.reason)
+        }
 
         // Final statistics
         const sortedUsers = users.sort(
