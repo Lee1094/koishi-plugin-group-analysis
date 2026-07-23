@@ -21,14 +21,18 @@ export class LLMService extends Service {
 
     private async _callOpenAI(
         prompt: string,
-        taskName: string
+        taskName: string,
+        attempt = 0
     ): Promise<string> {
         const logger = this.ctx.logger
 
         const endpoint = this.config.openaiEndpoint.replace(/\/$/, '')
         const url = `${endpoint}/chat/completions`
 
-        logger.info(`正在调用 OpenAI API 进行 ${taskName}... (prompt 长度: ${prompt.length} 字符)`)
+        const maxRetries = 2
+        const prefix = attempt > 0 ? `[重试 ${attempt}/${maxRetries}] ` : ''
+
+        logger.info(`${prefix}正在调用 OpenAI API 进行 ${taskName}... (prompt 长度: ${prompt.length} 字符)`)
 
         const timeoutMs = (this.config.openaiTimeout ?? 120) * 1000
 
@@ -51,19 +55,32 @@ export class LLMService extends Service {
             setTimeout(() => reject(new Error(`API 请求超时 (${taskName}, ${timeoutMs / 1000}s)`)), timeoutMs)
         )
 
-        const response = await Promise.race([request, timeout]).catch((err) => {
+        let response: any
+        try {
+            response = await Promise.race([request, timeout])
+        } catch (err: any) {
+            if (attempt < maxRetries) {
+                logger.warn(`${taskName} 第 ${attempt + 1} 次失败: ${err.message || err}，${timeoutMs / 1000}秒后重试...`)
+                await new Promise((r) => setTimeout(r, 3000))
+                return this._callOpenAI(prompt, taskName, attempt + 1)
+            }
             logger.error(`OpenAI API 请求失败 (${taskName}):`, err.message || err)
             throw err
-        })
+        }
 
         const rawContent = response?.choices?.[0]?.message?.content
 
         if (!rawContent) {
             logger.error(`OpenAI API 返回空响应: ${JSON.stringify(response)}`)
+            if (attempt < maxRetries) {
+                logger.warn(`${taskName} 返回空响应，重试中...`)
+                await new Promise((r) => setTimeout(r, 3000))
+                return this._callOpenAI(prompt, taskName, attempt + 1)
+            }
             throw new Error(`OpenAI API 返回空响应 (${taskName})`)
         }
 
-        logger.info(`LLM 原始响应: ${rawContent || '[空响应]'}`)
+        logger.debug(`LLM 原始响应: ${rawContent || '[空响应]'}`)
 
         return rawContent
     }
