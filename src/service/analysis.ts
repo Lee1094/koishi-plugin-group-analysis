@@ -1094,36 +1094,29 @@ export class AnalysisService extends Service {
         // LLM analyses in parallel
         const users = Object.values(userStats)
 
-        const [topicsResult, titlesResult, quotesResult] = await Promise.allSettled([
-            this.ctx.group_analysis_llm.summarizeTopics(
-                messagesText,
-                context
-            ),
-            this.config.userTitleAnalysis
-                ? this.ctx.group_analysis_llm.analyzeUserTitles(
-                      users,
-                      context
-                  )
-                : Promise.resolve([]),
-            this.ctx.group_analysis_llm.analyzeGoldenQuotes(
-                messagesText,
-                this.config.maxGoldenQuotes,
-                context
-            )
-        ])
+        // 串行调用，避免并发打崩 API
+        let topics: SummaryTopic[] = []
+        let userTitles: UserTitle[] = []
+        let goldenQuotes: GoldenQuote[] = []
 
-        const topics: SummaryTopic[] = topicsResult.status === 'fulfilled' ? topicsResult.value : []
-        const userTitles: UserTitle[] = titlesResult.status === 'fulfilled' ? titlesResult.value : []
-        const goldenQuotes: GoldenQuote[] = quotesResult.status === 'fulfilled' ? quotesResult.value : []
+        try {
+            topics = await this.ctx.group_analysis_llm.summarizeTopics(messagesText, context) ?? []
+        } catch (e) {
+            this.ctx.logger.error('话题分析失败:', e)
+        }
 
-        if (topicsResult.status === 'rejected') {
-            this.ctx.logger.error('话题分析失败:', topicsResult.reason)
+        if (this.config.userTitleAnalysis) {
+            try {
+                userTitles = await this.ctx.group_analysis_llm.analyzeUserTitles(users, context) ?? []
+            } catch (e) {
+                this.ctx.logger.error('用户称号分析失败:', e)
+            }
         }
-        if (titlesResult.status === 'rejected') {
-            this.ctx.logger.error('用户称号分析失败:', titlesResult.reason)
-        }
-        if (quotesResult.status === 'rejected') {
-            this.ctx.logger.error('金句分析失败:', quotesResult.reason)
+
+        try {
+            goldenQuotes = await this.ctx.group_analysis_llm.analyzeGoldenQuotes(messagesText, this.config.maxGoldenQuotes, context) ?? []
+        } catch (e) {
+            this.ctx.logger.error('金句分析失败:', e)
         }
 
         // Final statistics
