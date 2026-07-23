@@ -28,7 +28,7 @@ export class LLMService extends Service {
         const endpoint = this.config.openaiEndpoint.replace(/\/$/, '')
         const url = `${endpoint}/chat/completions`
 
-        logger.info(`正在调用 OpenAI API 进行 ${taskName}...`)
+        logger.info(`正在调用 OpenAI API 进行 ${taskName}... (prompt 长度: ${prompt.length} 字符)`)
 
         const timeoutMs = (this.config.openaiTimeout ?? 120) * 1000
 

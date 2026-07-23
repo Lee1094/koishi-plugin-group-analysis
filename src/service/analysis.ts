@@ -1100,9 +1100,15 @@ export class AnalysisService extends Service {
         const { userStats, totalChars, totalEmojiCount, allMessagesText } =
             calculateBasicStats(messages)
 
+        this.ctx.logger.info(`消息统计: 有效文本行=${allMessagesText.length}, 用户数=${Object.keys(userStats).length}, 总字数=${totalChars}`)
+
         const messagesText = allMessagesText.join('\n')
 
-        // LLM analyses in parallel
+        if (!messagesText.trim()) {
+            this.ctx.logger.warn('所有消息均无文本内容，LLM 分析将无法进行')
+        }
+
+        // 串行调用，避免并发打崩 API
         const users = Object.values(userStats)
 
         // 串行调用，避免并发打崩 API
