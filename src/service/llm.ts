@@ -21,66 +21,36 @@ export class LLMService extends Service {
 
     private async _callOpenAI(
         prompt: string,
-        taskName: string,
-        attempt = 0
+        taskName: string
     ): Promise<string> {
         const logger = this.ctx.logger
 
         const endpoint = this.config.openaiEndpoint.replace(/\/$/, '')
         const url = `${endpoint}/chat/completions`
 
-        const maxRetries = 2
-        const prefix = attempt > 0 ? `[重试 ${attempt}/${maxRetries}] ` : ''
+        logger.info(`正在调用 OpenAI API 进行 ${taskName}...`)
 
-        logger.info(`${prefix}正在调用 OpenAI API 进行 ${taskName}... (prompt 长度: ${prompt.length} 字符)`)
-
-        const timeoutMs = (this.config.openaiTimeout ?? 120) * 1000
-
-        const request = this.ctx.http.post(url, {
+        const response = await this.ctx.http.post(url, {
             model: this.config.openaiModel,
             messages: [
                 { role: 'user', content: prompt }
             ],
-            temperature: this.config.temperature ?? 1,
-            max_tokens: 4096
+            temperature: this.config.temperature ?? 1
         }, {
-            timeout: timeoutMs,
             headers: {
                 'Authorization': `Bearer ${this.config.openaiApiKey}`,
                 'Content-Type': 'application/json'
             }
         })
 
-        const timeout = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error(`API 请求超时 (${taskName}, ${timeoutMs / 1000}s)`)), timeoutMs)
-        )
-
-        let response: any
-        try {
-            response = await Promise.race([request, timeout])
-        } catch (err: any) {
-            if (attempt < maxRetries) {
-                logger.warn(`${taskName} 第 ${attempt + 1} 次失败: ${err.message || err}，${timeoutMs / 1000}秒后重试...`)
-                await new Promise((r) => setTimeout(r, 3000))
-                return this._callOpenAI(prompt, taskName, attempt + 1)
-            }
-            logger.error(`OpenAI API 请求失败 (${taskName}):`, err.message || err)
-            throw err
-        }
-
         const rawContent = response?.choices?.[0]?.message?.content
 
         if (!rawContent) {
             logger.error(`OpenAI API 返回空响应: ${JSON.stringify(response)}`)
-            if (attempt < maxRetries) {
-                logger.warn(`${taskName} 返回空响应，重试中...`)
-                await new Promise((r) => setTimeout(r, 3000))
-                return this._callOpenAI(prompt, taskName, attempt + 1)
-            }
             throw new Error(`OpenAI API 返回空响应 (${taskName})`)
         }
 
-        logger.debug(`LLM 原始响应: ${rawContent || '[空响应]'}`)
+        logger.info(`LLM 原始响应: ${rawContent || '[空响应]'}`)
 
         return rawContent
     }

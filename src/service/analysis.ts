@@ -672,38 +672,32 @@ export class AnalysisService extends Service {
 
             const format = outputFormat || this.config.outputFormat || 'image'
 
-            const llmEmpty = !analysisResult.topics?.length && !analysisResult.userTitles?.length && !analysisResult.goldenQuotes?.length
-            if (llmEmpty) {
-                const textReport = generateTextReport(analysisResult)
-                message = h.text(textReport + '\n\n⚠️ AI 分析未生成内容，请检查 API 日志。')
-            } else {
-                switch (format) {
-                    case 'image':
-                        {
-                            const image =
-                                await this.ctx.group_analysis_renderer.renderGroupAnalysis(
-                                    analysisResult,
-                                    this.config
-                                )
-                            message =
-                                typeof image === 'string'
-                                    ? h.text(image)
-                                    : h.image(image, 'image/png')
-                        }
-                        break
-                    case 'pdf': {
-                        const pdfBuffer =
-                            await this.ctx.group_analysis_renderer.renderGroupAnalysisToPdf(
-                                analysisResult
+            switch (format) {
+                case 'image':
+                    {
+                        const image =
+                            await this.ctx.group_analysis_renderer.renderGroupAnalysis(
+                                analysisResult,
+                                this.config
                             )
-                        message = pdfBuffer
-                            ? h.file(pdfBuffer, 'application/pdf')
-                            : h.text('PDF 渲染失败，请检查日志。')
-                        break
+                        message =
+                            typeof image === 'string'
+                                ? h.text(image)
+                                : h.image(image, 'image/png')
                     }
-                    default: {
-                        message = h.text(generateTextReport(analysisResult))
-                    }
+                    break
+                case 'pdf': {
+                    const pdfBuffer =
+                        await this.ctx.group_analysis_renderer.renderGroupAnalysisToPdf(
+                            analysisResult
+                        )
+                    message = pdfBuffer
+                        ? h.file(pdfBuffer, 'application/pdf')
+                        : h.text('PDF 渲染失败，请检查日志。')
+                    break
+                }
+                default: {
+                    message = h.text(generateTextReport(analysisResult))
                 }
             }
         } catch (error) {
@@ -832,42 +826,37 @@ export class AnalysisService extends Service {
         const format = outputFormat || this.config.outputFormat || 'image'
 
         if (action !== '只对话') {
-            const llmEmpty = !analysisResult.topics?.length && !analysisResult.userTitles?.length && !analysisResult.goldenQuotes?.length
-            if (llmEmpty) {
-                await sendStatus(textReport + '\n\n⚠️ AI 分析未生成内容，请检查 API 日志。')
-            } else {
-                let reportMessage: h
-                switch (format) {
-                    case 'image':
-                        {
-                            const image =
-                                await this.ctx.group_analysis_renderer.renderGroupAnalysis(
-                                    analysisResult,
-                                    this.config
-                                )
-                            reportMessage =
-                                typeof image === 'string'
-                                    ? h.text(image)
-                                    : h.image(image, 'image/png')
-                        }
-                        break
-                    case 'pdf': {
-                        const pdfBuffer =
-                            await this.ctx.group_analysis_renderer.renderGroupAnalysisToPdf(
-                                analysisResult
+            let reportMessage: h
+            switch (format) {
+                case 'image':
+                    {
+                        const image =
+                            await this.ctx.group_analysis_renderer.renderGroupAnalysis(
+                                analysisResult,
+                                this.config
                             )
-                        reportMessage = pdfBuffer
-                            ? h.file(pdfBuffer, 'application/pdf')
-                            : h.text('PDF 渲染失败，请检查日志。')
-                        break
+                        reportMessage =
+                            typeof image === 'string'
+                                ? h.text(image)
+                                : h.image(image, 'image/png')
                     }
-                    default: {
-                        reportMessage = h.text(textReport)
-                    }
+                    break
+                case 'pdf': {
+                    const pdfBuffer =
+                        await this.ctx.group_analysis_renderer.renderGroupAnalysisToPdf(
+                            analysisResult
+                        )
+                    reportMessage = pdfBuffer
+                        ? h.file(pdfBuffer, 'application/pdf')
+                        : h.text('PDF 渲染失败，请检查日志。')
+                    break
                 }
-
-                await sendStatus(reportMessage)
+                default: {
+                    reportMessage = h.text(textReport)
+                }
             }
+
+            await sendStatus(reportMessage)
         }
 
         if (action !== '只分析') {
@@ -1100,41 +1089,36 @@ export class AnalysisService extends Service {
         const { userStats, totalChars, totalEmojiCount, allMessagesText } =
             calculateBasicStats(messages)
 
-        this.ctx.logger.info(`消息统计: 有效文本行=${allMessagesText.length}, 用户数=${Object.keys(userStats).length}, 总字数=${totalChars}`)
-
         const messagesText = allMessagesText.join('\n')
 
-        if (!messagesText.trim()) {
-            this.ctx.logger.warn('所有消息均无文本内容，LLM 分析将无法进行')
-        }
-
-        // 串行调用，避免并发打崩 API
+        // LLM analyses in parallel
         const users = Object.values(userStats)
 
-        // 串行调用，避免并发打崩 API
-        let topics: SummaryTopic[] = []
-        let userTitles: UserTitle[] = []
-        let goldenQuotes: GoldenQuote[] = []
-
-        try {
-            topics = await this.ctx.group_analysis_llm.summarizeTopics(messagesText, context) ?? []
-        } catch (e) {
-            this.ctx.logger.error('话题分析失败:', e)
-        }
-
-        if (this.config.userTitleAnalysis) {
-            try {
-                userTitles = await this.ctx.group_analysis_llm.analyzeUserTitles(users, context) ?? []
-            } catch (e) {
-                this.ctx.logger.error('用户称号分析失败:', e)
-            }
-        }
-
-        try {
-            goldenQuotes = await this.ctx.group_analysis_llm.analyzeGoldenQuotes(messagesText, this.config.maxGoldenQuotes, context) ?? []
-        } catch (e) {
-            this.ctx.logger.error('金句分析失败:', e)
-        }
+        const [topics, userTitles, goldenQuotes] = await Promise.all([
+            this.ctx.group_analysis_llm.summarizeTopics(
+                messagesText,
+                context
+            ),
+            this.config.userTitleAnalysis
+                ? this.ctx.group_analysis_llm.analyzeUserTitles(
+                      users,
+                      context
+                  )
+                : Promise.resolve([]),
+            this.ctx.group_analysis_llm.analyzeGoldenQuotes(
+                messagesText,
+                this.config.maxGoldenQuotes,
+                context
+            )
+        ]).catch((error) => {
+            this.ctx.logger.error('LLM analysis failed:', error)
+            //  On LLM failure, return empty results to avoid crashing the entire analysis.
+            return [
+                [] as SummaryTopic[],
+                [] as UserTitle[],
+                [] as GoldenQuote[]
+            ] as const
+        })
 
         // Final statistics
         const sortedUsers = users.sort(
