@@ -45,6 +45,9 @@ export function apply(ctx: Context, config: Config) {
             authority: 3
         })
         .action(async ({ session, options }, query) => {
+            if (config.personaBlacklist.includes(session.userId)) {
+                return '你已被禁止使用群分析功能。'
+            }
             if (session.isDirect && !options.group && !options.channel) {
                 return '私聊中请使用 -g 或 -c 指定目标群或频道。'
             }
@@ -236,19 +239,31 @@ export function apply(ctx: Context, config: Config) {
         .action(async ({ session, options }, user) => {
             if (session.isDirect) return '请在群聊中使用此命令。'
 
+            // 黑名单检查
+            if (config.personaBlacklist.includes(session.userId)) {
+                return '你已被禁止使用用户画像功能。'
+            }
+
             if (!checkGroup(session))
                 return '本群未启用群分析功能，请使用 群分析.启用 来启用本群的群分析功能。'
 
             let userId = user?.split(':')?.[1] ?? session.userId
+            const isSelf = userId === session.userId
+            const isWhitelist = config.personaWhitelist.includes(session.userId)
 
-            if (
-                userId !== session.userId &&
-                ((session as Session<User.Field>).user?.authority ?? 0) < (config.personaViewAuthority ?? 3)
-            ) {
-                await session.send(
-                    `你没有权限查看其他用户的画像。需要权限 ${config.personaViewAuthority ?? 3} 级。将转为查看自己的画像。`
-                )
-                userId = session.userId
+            // 白名单用户可查看他人，不受权限限制
+            if (!isSelf && !isWhitelist) {
+                // 不能查看白名单用户
+                if (config.personaWhitelist.includes(userId)) {
+                    return '该用户设置了隐私保护，你无权查看其画像。'
+                }
+                // 权限检查
+                if (((session as Session<User.Field>).user?.authority ?? 0) < (config.personaViewAuthority ?? 3)) {
+                    await session.send(
+                        `你没有权限查看其他用户的画像。需要权限 ${config.personaViewAuthority ?? 3} 级。将转为查看自己的画像。`
+                    )
+                    userId = session.userId
+                }
             }
 
             if (!userId) {

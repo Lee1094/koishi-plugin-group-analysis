@@ -52,6 +52,8 @@ export interface Config {
     personaMaxMessages: number
     personaMinMessages: number
     personaViewAuthority: number
+    personaWhitelist: string[]
+    personaBlacklist: string[]
     theme: 'light' | 'dark' | 'auto'
     skin: string
 
@@ -213,7 +215,15 @@ export const Config: Schema<Config> = Schema.intersect([
             .min(0)
             .max(4)
             .step(1)
-            .default(3)
+            .default(3),
+        personaWhitelist: Schema.array(String)
+            .role('table')
+            .description('白名单用户 ID。白名单用户可查看他人画像且不受权限限制，同时其他人无法查看白名单用户的画像。')
+            .default([]),
+        personaBlacklist: Schema.array(String)
+            .role('table')
+            .description('黑名单用户 ID。黑名单用户无法使用用户画像和群分析命令。')
+            .default([])
     }).description('用户画像设置'),
     Schema.object({
         promptTopic: Schema.string()
