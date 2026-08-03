@@ -89,6 +89,11 @@ export class MessageService extends Service {
     }
 
     private async handleMessage(session: Session) {
+        // 黑名单用户的消息完全不记录、不参与统计
+        if (this.config.personaBlacklist?.includes(session.userId)) {
+            return
+        }
+
         const uniqueId = session.messageId
             ? `${session.platform}_${session.messageId}`
             : `${session.platform}_${session.selfId}_${session.channelId}_${Date.now()}_${Math.random()
@@ -284,6 +289,11 @@ export class MessageService extends Service {
                         )
                     }
 
+                    // 黑名单用户的消息一律排除
+                    if (this.config.personaBlacklist?.includes(msg.userId)) {
+                        purposeFilter = false
+                    }
+
                     return (
                         withinTimeRange &&
                         matchesUser &&
@@ -474,6 +484,11 @@ export class MessageService extends Service {
                             !this.config.personaUserFilter.includes(userId)
                     }
 
+                    // 黑名单用户的消息一律排除
+                    if (this.config.personaBlacklist?.includes(userId)) {
+                        purposeFilter = false
+                    }
+
                     return (
                         withinTimeRange &&
                         matchesUser &&
@@ -576,6 +591,14 @@ export class MessageService extends Service {
                           )
                       }
                     : { $nin: this.config.personaUserFilter }
+            }
+
+            // 黑名单用户的消息一律排除
+            if (this.config.personaBlacklist?.length > 0) {
+                const blacklist = this.config.personaBlacklist
+                query.userId = query.userId
+                    ? { $in: filter.userId.filter((userId) => !blacklist.includes(userId)) }
+                    : { $nin: blacklist }
             }
 
             const messages = await this.ctx.database

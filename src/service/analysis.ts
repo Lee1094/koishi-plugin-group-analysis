@@ -118,6 +118,11 @@ export class AnalysisService extends Service {
             return
         }
 
+        // 黑名单用户不做画像分析
+        if (this.config.personaBlacklist?.includes(session.userId)) {
+            return
+        }
+
         const recordId = buildPersonaRecordId(
             session.platform,
             session.selfId,
