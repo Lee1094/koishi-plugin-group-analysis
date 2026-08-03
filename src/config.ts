@@ -218,7 +218,7 @@ export const Config: Schema<Config> = Schema.intersect([
             .default(3),
         personaWhitelist: Schema.array(String)
             .role('table')
-            .description('白名单用户 ID。白名单用户可查看他人画像且不受权限限制，同时其他人无法查看白名单用户的画像。')
+            .description('特权用户 ID。特权用户可查看他人画像且不受权限限制，同时其他人无法查看特权用户的画像。')
             .default([]),
         personaBlacklist: Schema.array(String)
             .role('table')

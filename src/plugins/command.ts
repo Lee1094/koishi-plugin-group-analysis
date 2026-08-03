@@ -46,7 +46,7 @@ export function apply(ctx: Context, config: Config) {
         })
         .action(async ({ session, options }, query) => {
             if (config.personaBlacklist.includes(session.userId)) {
-                return '你已被禁止使用群分析功能。'
+                return '您无权使用本插件。'
             }
             if (session.isDirect && !options.group && !options.channel) {
                 return '私聊中请使用 -g 或 -c 指定目标群或频道。'
@@ -241,7 +241,7 @@ export function apply(ctx: Context, config: Config) {
 
             // 黑名单检查
             if (config.personaBlacklist.includes(session.userId)) {
-                return '你已被禁止使用用户画像功能。'
+                return '您无权使用本插件。'
             }
 
             if (!checkGroup(session))
@@ -255,7 +255,7 @@ export function apply(ctx: Context, config: Config) {
             if (!isSelf && !isWhitelist) {
                 // 不能查看白名单用户
                 if (config.personaWhitelist.includes(userId)) {
-                    return '该用户设置了隐私保护，你无权查看其画像。'
+                    return '您的权限不足，无法查看特权用户。'
                 }
                 // 权限检查
                 if (((session as Session<User.Field>).user?.authority ?? 0) < (config.personaViewAuthority ?? 3)) {
